@@ -174,7 +174,7 @@ def process_prompt(el, model):
     return el
 
 def process_file(model, eval_type, sub_task, file):
-    base_path = os.path.join('result', model, sub_task)
+    base_path = os.path.join('answer', model, eval_type, sub_task)
 
     if not os.path.exists(base_path):
         os.makedirs(base_path)

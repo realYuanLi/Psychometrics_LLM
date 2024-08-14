@@ -8,3 +8,4 @@ pip3 install tenacity
 pip3 install urllib3
 pip3 install pyyaml
 pip3 install tqdm
+pip3 install scikit-learn

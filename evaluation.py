@@ -1,27 +1,51 @@
+import numpy as np
+import pandas as pd
 import os
 import json
 import re
 import math
 import string
-import numpy as np
-import pandas as pd
+import argparse
 import csv
+from generation import load_config, validate_and_get_config
+from utils import parse_emotion_output, find_first_number, parse_score
+from sklearn.metrics import cohen_kappa_score
+
+BIG_FIVE_REFERENCE = "reference/raw_big_five.json"
+DARK_TRAITS_REFERENCE = "reference/dark_traits_raw.json"
+
+supported_models = ['gpt-4', 'gpt-3.5', 'llama3-8b', 'llama3-70b', 'mixtral-8*7b', 'mistral-7b', 'mixtral-8*22b', 'glm4', 'qwen-turbo']
+supported_dimensions = ['personality', 'emotion', 'values', 'ToM', 'motivation']
+supported_sub_tasks = ['EA', 'EU', 'self-efficacy', 'big_five_inventory', 'dark_traits', 'vignette_test', 'false_belief', 'imposing_memory', 'strange_stories', 'culture_orientation', 'human-centered_values', 'moral_belief']
+supported_reliability = ['position_bias', 'parallel_forms', 'internal_consistency', 'inter-rater']
+
+tasks_config = {
+    'emotion': {
+        'EA': ['position_bias'],
+        'EU': ['position_bias']
+    },
+    'motivation': {
+        'self-efficacy': ['parallel_forms']
+    },
+    'personality': {
+        'big_five_inventory': ['internal_consistency'],
+        'dark_traits': ['internal_consistency'],
+        'vignette_test': ['inter-rater']
+    },
+    'ToM': {
+        'false_belief': ['parallel_forms', 'position_bias'],
+        'imposing_memory': ['parallel_forms'],
+        'strange_stories': ['inter-rater']
+    },
+    'values': {
+        'culture_orientation': ['internal_consistency'],
+        'human-centered_values': ['position_bias'],
+        'moral_belief': ['parallel_forms']
+    }
+}
 
 
-# BIG_FIVE_REFERENCE = "personality/raw_big_five.json"
-# DARK_TRAITS_REFERENCE = "personality/dark_traits_raw.json"
-letters = string.ascii_lowercase
-
-def find_first_number(text):
-    # This regular expression pattern will match any sequence of digits
-    match = re.search(r'\d+', text)
-    if match:
-        return int(match.group())  # Returns the first occurrence of a digit sequence
-    else:
-        return "No numbers found"
-
-
-def big_five_eval(models: list, file: str, save_dir='result'):
+def big_five_eval(models: list, save_dir='result'):
     with open(BIG_FIVE_REFERENCE, 'r') as f:
         reference_data = json.load(f)
         reverse_question = reference_data['reverse']
@@ -30,23 +54,23 @@ def big_five_eval(models: list, file: str, save_dir='result'):
         Conscientiousness_question = [el['cat_questions'] for el in reference_data['categories'] if el['cat_name'] == 'Conscientiousness'][0]
         Neuroticism_question = [el['cat_questions'] for el in reference_data['categories'] if el['cat_name'] == 'Neuroticism'][0]
         Openness_question = [el['cat_questions'] for el in reference_data['categories'] if el['cat_name'] == 'Openness'][0]
-        print(Extraversion_question, Agreeableness_question, Conscientiousness_question, Neuroticism_question, Openness_question)
-
 
     model_score_dict = {}
     for model in models:
         model_score_dict[model] = {"Extraversion": [], "Agreeableness": [], "Conscientiousness": [], "Neuroticism": [], "Openness": []}
-        with open(os.path.join(save_dir, model, file), 'r') as f:
+        directory_path = os.path.join("answer", model, "personality", "big_five_inventory")
+        files = os.listdir(directory_path)
+        json_files = [file for file in files if file.endswith('.json')]
+        file_path = os.path.join(directory_path, json_files[0])
+        with open(file_path, 'r') as f:
             data = json.load(f)
         for el in data:
-            number = find_first_number(el['res'])
-            # print(number)
+            number = find_first_number(el['answer'])
             if number != 'No numbers found':
                 el['index'] = int(el['index'])
                 number = int(number)
                 if el['index'] in reverse_question:
                     number = 6 - number
-
                 if el['index'] in Extraversion_question:
                     model_score_dict[model]['Extraversion'].append(number)
                 elif el['index'] in Agreeableness_question:
@@ -61,54 +85,36 @@ def big_five_eval(models: list, file: str, save_dir='result'):
                     print(el['index'])
                     raise ValueError('No Dimension!')
 
-    print(model_score_dict)
-    # calculate avg and standard deviation for each dimension
-    model_avg_score = {}
+    # Calculate avg and std for each dimension
+    model_results = {}
     for model in models:
-        model_avg_score[model] = {}
-        for dimension in model_score_dict[model]:
-            model_avg_score[model][dimension] = sum(model_score_dict[model][dimension]) / len(model_score_dict[model][dimension])
+        eval_type_dir = os.path.join(save_dir, model, "personality", "big_five_inventory")
+        os.makedirs(eval_type_dir, exist_ok=True)
+        json_filename = os.path.join(eval_type_dir, 'results.json')
+        with open(json_filename, 'w') as jsonfile:
+            json.dump(model_results[model], jsonfile, indent=4)
 
-    model_std_score = {}
-    for model in models:
-        model_std_score[model] = {}
-        for dimension in model_score_dict[model]:
-            model_std_score[model][dimension] = np.std(model_score_dict[model][dimension])
-
-    # save model_avg_dict as csv
-    with open('big_five_avg_2.csv', 'w', newline='') as csvfile:
-        writer = csv.writer(csvfile)
-        for model in models:
-            for dimension in model_avg_score[model]:
-                writer.writerow([model, dimension, model_avg_score[model][dimension]])
-
-    with open('big_five_std_2.csv', 'w', newline='') as csvfile:
-        writer = csv.writer(csvfile)
-        for model in models:
-            for dimension in model_std_score[model]:
-                writer.writerow([model, dimension, model_std_score[model][dimension]])
-
-    return model_score_dict, model_avg_score, model_std_score
+    return model_score_dict, model_results
 
 
-def dark_traits_eval(models: list, file: str, save_dir='result'):
+def dark_traits_eval(models: list, save_dir='result'):
     with open(DARK_TRAITS_REFERENCE, 'r') as f:
         reference_data = json.load(f)
-        Machiavellianism_question = reference_data['Machiavellianism']
-        Machiavellianism_question = [el.strip('(R)') for el in Machiavellianism_question]
-        Narcissism_question = reference_data['Narcissism']
-        Narcissism_question = [el.strip('(R)') for el in Narcissism_question]
-        Psychopathy_question = reference_data['Psychopathy']
-        Psychopathy_question = [el.strip('(R)') for el in Psychopathy_question]
+        Machiavellianism_question = [el.strip('(R)') for el in reference_data['Machiavellianism']]
+        Narcissism_question = [el.strip('(R)') for el in reference_data['Narcissism']]
+        Psychopathy_question = [el.strip('(R)') for el in reference_data['Psychopathy']]
 
     model_score_dict = {}
     for model in models:
         model_score_dict[model] = {"Machiavellianism": [], "Narcissism": [], "Psychopathy": []}
-        with open(os.path.join(save_dir, model, file), 'r') as f:
+        directory_path = os.path.join("answer", model, "personality", "dark_traits")
+        files = os.listdir(directory_path)
+        json_files = [file for file in files if file.endswith('.json')]
+        file_path = os.path.join(directory_path, json_files[0])
+        with open(file_path, 'r') as f:
             data = json.load(f)
         for el in data:
-            number = find_first_number(el['res'])
-            # print(number)
+            number = find_first_number(el['answer'])
             if number != 'No numbers found':
                 number = int(number)
                 if el['reverse']:
@@ -119,139 +125,59 @@ def dark_traits_eval(models: list, file: str, save_dir='result'):
                     model_score_dict[model]['Narcissism'].append(number)
                 elif el['question'] in Psychopathy_question:
                     model_score_dict[model]['Psychopathy'].append(number)
-                else:
-                    print(el['question'])
-                    raise ValueError('No Dimension!')
 
-    print(model_score_dict)
-    # calculate avg and standard deviation for each dimension
-    model_avg_dict = {}
+    model_results = {}
     for model in models:
-        model_avg_dict[model] = {}
-        for dimension in model_score_dict[model]:
-            model_avg_dict[model][dimension] = sum(model_score_dict[model][dimension]) / len(model_score_dict[model][dimension])
+        eval_type_dir = os.path.join(save_dir, model, "personality", "dark_traits")
+        os.makedirs(eval_type_dir, exist_ok=True)
+        json_filename = os.path.join(eval_type_dir, 'results.json')
+        with open(json_filename, 'w') as jsonfile:
+            json.dump(model_results[model], jsonfile, indent=4)
 
-    model_std_dict = {}
-    for model in models:
-        model_std_dict[model] = {}
-        for dimension in model_score_dict[model]:
-
-            model_std_dict[model][dimension] = np.std(model_score_dict[model][dimension])
-    # save model_avg_dict as csv
-    with open('dark_traits_avg.csv', 'w', newline='') as csvfile:
-        writer = csv.writer(csvfile)
-        for model in models:
-            for dimension in model_avg_dict[model]:
-                writer.writerow([model, dimension, model_avg_dict[model][dimension]])
-
-    # save model_std_dict as csv
-    with open('dark_traits_std.csv', 'w', newline='') as csvfile:
-        writer = csv.writer(csvfile)
-        for model in models:
-            for dimension in model_std_dict[model]:
-                writer.writerow([model, dimension, model_std_dict[model][dimension]])
-
-    return model_score_dict, model_avg_dict, model_std_dict
+    return model_score_dict, model_results
 
 
-def process_output(pred, choices, task):
-    try:
-        pred = pred.lower().replace("（", "(").replace("）", ")").replace(".", "")
-        choices = [
-            choice.replace(" & ", " and ")
-            for choice in choices
-        ]
-        lines = pred.split("\n")
-        for j in range(len(lines)):
-            output = lines[len(lines) - 1 - j]
-            if output:
-                alphabets = {
-                    "normal": [
-                        f"({letters[i]})" for i in range(4 if task == "EA" else 6)
-                    ],
-                    "paranthese": [
-                        f"[{letters[i]}]" for i in range(4 if task == "EA" else 6)
-                    ],
-                    "dot": [f": {letters[i]}" for i in range(4 if task == "EA" else 6)],
-                    "option": [
-                        f"option {letters[i]}" for i in range(4 if task == "EA" else 6)
-                    ],
-                    "option1": [
-                        f"option ({letters[i]})"
-                        for i in range(4 if task == "EA" else 6)
-                    ],
-                    "choice": [
-                        f"choice {letters[i]}" for i in range(4 if task == "EA" else 6)
-                    ],
-                    "choice1": [
-                        f"choice ({letters[i]})"
-                        for i in range(4 if task == "EA" else 6)
-                    ],
-                    "选项": [
-                        f"选项 {letters[i]}" for i in range(4 if task == "EA" else 6)
-                    ],
-                    "选项1": [
-                        f"选项 ({letters[i]})" for i in range(4 if task == "EA" else 6)
-                    ],
-                }
-
-                for v in alphabets.values():
-                    for a in v:
-                        if a in output:
-                            return v.index(a)
-                for c in choices:
-                    if c.lower() in output:
-                        return choices.index(c)
-                if len(output) == 1 and output in letters[: 4 if task == "EA" else 6]:
-                    return letters.index(output)
-                if output[0] in letters[: 4 if task == "EA" else 6] and output[1] in [
-                    "<",
-                    "[",
-                    "(",
-                    ")",
-                    ":",
-                ]:
-                    return letters.index(output[0])
-    except Exception as e:
-        print("Error in processing output", type(e).__name__, "–", e)
-
-    return -1
-
-
-def emotion_EA_eval(models: list, file: str, save_dir='result'):
+def emotion_EA_eval(models: list, save_dir='result'):
     model_score_dict = {}
     for model in models:
         model_score_dict[model] = []
-        with open(os.path.join(save_dir, model, file), 'r') as f:
+        directory_path = os.path.join("answer", model, "emotion", "EA")
+        files = os.listdir(directory_path)
+        json_files = [file for file in files if file.endswith('.json')]
+        file_path = os.path.join(directory_path, json_files[0])
+        with open(file_path, 'r') as f:
             data = json.load(f)
             for el in data:
-                answer = process_output(el['res'], el['choices'], 'EA')
+                answer = parse_emotion_output(el['answer'], el['choices'], 'EA')
                 model_score_dict[model].append(1 if answer == el['label'] else 0)
 
-    # print(model_score_dict)
-    # calculate avg
     avg_dict = {}
     for model in models:
         avg_dict[model] = sum(model_score_dict[model]) / len(model_score_dict[model])
     print(avg_dict)
-    # save avg_dict as csv
-    with open(file.replace('_res.json', '_avg.csv'), 'w', newline='') as csvfile:
-        writer = csv.writer(csvfile)
-        for model in models:
-            writer.writerow([model, avg_dict[model]])
-
+    
+    for model in models:
+        eval_type_dir = os.path.join(save_dir, model, "emotion", "EA")
+        os.makedirs(eval_type_dir, exist_ok=True)
+        json_filename = os.path.join(eval_type_dir, 'results.json')
+        with open(json_filename, 'w') as jsonfile:
+            json.dump(avg_dict, jsonfile, indent=4)
 
     return model_score_dict, avg_dict
 
 
-def emotion_EU_eval(models: list, file: str, save_dir='result'):
+def emotion_EU_eval(models: list, save_dir='result'):
     model_score_dict = {}
     for model in models:
         model_score_dict[model] = []
-        with open(os.path.join(save_dir, model, file), 'r') as f:
+        directory_path = os.path.join("answer", model, "emotion", "EU")
+        files = os.listdir(directory_path)
+        json_files = [file for file in files if file.endswith('.json')]
+        file_path = os.path.join(directory_path, json_files[0])
+        with open(file_path, 'r') as f:
             data = json.load(f)
             for el in data:
-                answer = process_output(el['res'], el['choices'], 'EU')
+                answer = parse_emotion_output(el['res'], el['choices'], 'EU')
                 if el['emotion_label'] in el['choices']:
                     question_type = 'emotion_label'
                 else:
@@ -261,13 +187,14 @@ def emotion_EU_eval(models: list, file: str, save_dir='result'):
     avg_dict = {}
     for model in models:
         avg_dict[model] = sum(model_score_dict[model]) / len(model_score_dict[model])
-
     print(avg_dict)
-    # save avg_dict as csv
-    with open(file.replace('_res.json', '_avg.csv'), 'w', newline='') as csvfile:
-        writer = csv.writer(csvfile)
-        for key, value in avg_dict.items():
-            writer.writerow([key, value])
+    
+    for model in models:
+        eval_type_dir = os.path.join(save_dir, model, "emotion", "EU")
+        os.makedirs(eval_type_dir, exist_ok=True)
+        json_filename = os.path.join(eval_type_dir, 'results.json')
+        with open(json_filename, 'w') as jsonfile:
+            json.dump(avg_dict, jsonfile, indent=4)
 
     return model_score_dict, avg_dict
 
@@ -276,61 +203,150 @@ def culture_eval(models: list, file: str, save_dir='result'):
     model_score_dict = {}
     for model in models:
         model_score_dict[model] = {}
-        with open(os.path.join(save_dir, model, file), 'r') as f:
+        directory_path = os.path.join("answer", model, "values", "culture_orientation")
+        files = os.listdir(directory_path)
+        json_files = [file for file in files if file.endswith('.json')]
+        file_path = os.path.join(directory_path, json_files[0])
+        with open(file_path, 'r') as f:
             data = json.load(f)
             for el in data:
                 if el['dimension'] not in model_score_dict[model]:
                     model_score_dict[model][el['dimension']] = []
-                if find_first_number(el['res']) != 'No numbers found':
-                    model_score_dict[model][el['dimension']].append(find_first_number(el['res']))
+                res_number = find_first_number(el['res'])
+                if res_number != 'No numbers found':
+                    model_score_dict[model][el['dimension']].append(float(res_number))
 
-    print(model_score_dict)
-    # calculate avg and std
-    model_avg_dict = {}
+    # Calculate avg and std
+    model_results = {}
     for model in models:
-        model_avg_dict[model] = {}
+        model_results[model] = {}
         for dimension in model_score_dict[model]:
-            model_avg_dict[model][dimension] = sum(model_score_dict[model][dimension]) / len(model_score_dict[model][dimension])
+            numbers = np.array(model_score_dict[model][dimension])
+            if numbers.size > 0:
+                avg = numbers.mean()
+                std = numbers.std()
+            else:
+                avg = None
+                std = None
+            model_results[model][dimension] = {'avg': avg, 'std': std}
 
-    model_std_dict = {}
+    print(model_results)
+    
     for model in models:
-        model_std_dict[model] = {}
-        for dimension in model_score_dict[model]:
-            model_std_dict[model][dimension] = np.std(model_score_dict[model][dimension])
-    print(model_avg_dict)
+        eval_type_dir = os.path.join(save_dir, model, "values", "culture_orientation")
+        os.makedirs(eval_type_dir, exist_ok=True)
+        json_filename = os.path.join(eval_type_dir, 'results.json')
+        with open(json_filename, 'w') as jsonfile:
+            json.dump(model_results[model], jsonfile, indent=4)
 
-    # save model_avg_dict as csv
-    with open('culture_avg.csv', 'w', newline='') as csvfile:
-        writer = csv.writer(csvfile)
-        for model in models:
-            for dimension in model_avg_dict[model]:
-                row = [model, dimension, model_avg_dict[model][dimension]]
-                writer.writerow(row)
-
-    with open('culture_std.csv', 'w', newline='') as csvfile:
-        writer = csv.writer(csvfile)
-        for model in models:
-            for dimension in model_std_dict[model]:
-                row = [model, dimension, model_std_dict[model][dimension]]
-                writer.writerow(row)
+    return model_score_dict, model_results
 
 
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="Process models, dimensions, sub-tasks, and reliability from YAML.")
+    parser.add_argument('config_file', nargs='?', default='', type=str, help='Path to the YAML configuration file')
+    args = parser.parse_args()
+
+    config = load_config(args.config_file) if args.config_file else {}
+
+    models = validate_and_get_config(config, 'models', supported_models)
+    dimensions = validate_and_get_config(config, 'dimensions', supported_dimensions)
+    sub_tasks = validate_and_get_config(config, 'sub-tasks', supported_sub_tasks)
+    reliability_measures = validate_and_get_config(config, 'reliability', supported_reliability)
+
+    if "emotion" in dimensions:
+        if "EA" in sub_tasks:
+            model_score_dict, avg_dict = emotion_EA_eval(models, 'result')
+        if "EU" in sub_tasks:
+            model_score_dict, avg_dict = emotion_EU_eval(models, 'result')
+
+def motivation_eff_eval(models: list, save_dir='result'):
+    model_score_dict = {}
+    for model in models:
+        model_score_dict[model] = {}
+        directory_path = os.path.join("answer", model, "motivation", "self-efficacy")
+        files = os.listdir(directory_path)
+        json_files = [file for file in files if file.endswith('.json')]
+        model_score_dict = {model: {"type_1": [], "type_2": []} for model in models}
+    avg_dict = {}
+
+    for model in models:
+        # Reading the first JSON file
+        file_path = os.path.join(directory_path, json_files[0])
+        with open(file_path, 'r') as f:
+            data = json.load(f)
+            for el in data:
+                answer = parse_score(el['answer'])
+                model_score_dict[model][el['type']].append(answer)
+
+        # If there are two files, read the second and compute averages
+        if len(json_files) > 1:
+            file_path = os.path.join(directory_path, json_files[1])
+            with open(file_path, 'r') as f:
+                data = json.load(f)
+                for i, el in enumerate(data):
+                    answer = parse_score(el['answer'])
+                    model_score_dict[model][el['type']].append(answer)
+                    avg_score = sum(model_score_dict[model][el['type']][-2:]) / 2
+                    avg_dict[el['type']] = avg_score
+
+            # Calculate weighted Kappa coefficient
+            kappa_coeff = cohen_kappa_score(
+                model_score_dict[model]["type_1"][-2:],
+                model_score_dict[model]["type_2"][-2:],
+                weights='quadratic'
+            )
+        else:
+            # If there's only one file, output the current dictionary
+            avg_dict = {el['type']: scores[0] for el, scores in model_score_dict[model].items()}
+            kappa_coeff = ""
+
+        # Save results
+        eval_type_dir = os.path.join(save_dir, model, "motivation", "self-efficacy")
+        os.makedirs(eval_type_dir, exist_ok=True)
+        json_filename = os.path.join(eval_type_dir, 'results.json')
+        with open(json_filename, 'w') as jsonfile:
+            json.dump({"average": avg_dict, "kappa_coeff": kappa_coeff}, jsonfile, indent=4)
+
+    return avg_dict, kappa_coeff
+    
+    for model in models:
+        eval_type_dir = os.path.join(save_dir, model, "motivation", "self-efficacy")
+        os.makedirs(eval_type_dir, exist_ok=True)
+        json_filename = os.path.join(eval_type_dir, 'results.json')
+        with open(json_filename, 'w') as jsonfile:
+            json.dump(avg_dict, jsonfile, indent=4)
+
+    return model_score_dict, avg_dict
 
 
-    return model_score_dict, model_avg_dict
+    if "motivation" in dimensions:
+        if "self-efficacy" in sub_tasks:
+            read json file with filename without "(" and ")"
 
-#Example execution
+            if "parallel_form" in reliability_measures:
+                do parsing on 
 
-# file_list = ['EmoBench_EU_Shuffled_Fixed_1_res.json', 'EmoBench_EU_Shuffled_Fixed_2_res.json', 'EmoBench_EU_Shuffled_Fixed_3_res.json']
-# for file in file_list:
-#     emotion_EU_eval(['gpt-4', 'chatgpt', 'llama3-8b', 'llama3-70b', 'mixtral', 'mistral-7b', 'mixtral-large', 'glm4', 'qwen-turbo'], file)
-#
-# file_list = ['Shuffled_Version_1_EmoBench_EA_res.json', 'Shuffled_Version_2_EmoBench_EA_res.json', 'Shuffled_Version_3_EmoBench_EA_res.json']
-# for file in file_list:
-#     emotion_EA_eval(['gpt-4', 'chatgpt', 'llama3-8b', 'llama3-70b', 'mixtral', 'mistral-7b', 'mixtral-large', 'glm4', 'qwen-turbo'], file)
+        
+    if "personality" in dimensions:
+        if "big_five_inventory" in sub_tasks:
+            model_score_dict, model_results = big_five_eval(models, 'result')
+        if "dark_traits" in sub_tasks:
+            model_score_dict, model_results = dark_traits_eval(models, 'result')
+        if "vignette_test" in sub_tasks:
+            break
 
-
-# emotion_EU_eval(['gpt-4', 'chatgpt', 'llama3-8b', 'llama3-70b', 'mixtral', 'mistral-7b', 'mixtral-large', 'glm4', 'qwen-turbo'], 'EmoBench_EU_res.json')
-big_five_eval(['gpt-4', 'chatgpt', 'llama3-8b', 'llama3-70b', 'mixtral', 'mistral-7b', 'mixtral-large', 'glm4', 'qwen-turbo'], 'big_five_new_2_res.json')
-# dark_traits_eval(['gpt-4', 'chatgpt', 'llama3-8b', 'llama3-70b', 'mixtral', 'mistral-7b', 'mixtral-large', 'glm4', 'qwen-turbo'], 'dark_traits_res.json')
-# culture_eval(['gpt-4', 'chatgpt', 'llama3-8b', 'llama3-70b', 'mixtral', 'mistral-7b', 'mixtral-large', 'glm4', 'qwen-turbo'], 'culture_orientation_res.json')
+    if "ToM" in dimensions:
+        if "false_belief" in sub_tasks:
+            break
+        if "imposing_memory" in sub_tasks:
+            break
+        if "strange_stories" in sub_tasks:
+            break
+    if "values" in dimensions:
+        if "culture_orientation" in sub_tasks:
+            model_score_dict, model_results = culture_eval(models, 'result')
+        if "human-centered_values" in sub_tasks:
+            break
+        if "moral_belief" in sub_tasks:
+            break
