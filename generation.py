@@ -13,33 +13,67 @@ import concurrent.futures
 import os, time
 from tenacity import retry, wait_random_exponential, stop_after_attempt
 import urllib3
-import config
+import yaml
+import argparse
+import logging
+
+logging.basicConfig(level=logging.INFO, format='%(levelname)s: %(message)s')
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+
+def load_api():
+    with open("api.yaml", 'r') as stream:
+        config = yaml.safe_load(stream)
+        return config
+
+api_keys = load_api()
+
+qwen_api_key = api_keys['api_keys']['qwen']
+openai_api = api_keys['api_keys']['openai']
+deepinfra_api = api_keys['api_keys']['deepinfra']
+zhipu_api = api_keys['api_keys']['zhipu']
+
+supported_models = ['gpt-4', 'gpt-3.5', 'llama3-8b', 'llama3-70b', 'mixtral-8*7b', 'mistral-7b', 'mixtral-8*22b', 'glm4', 'qwen-turbo']
+supported_dimensions = ['personality', 'emotion', 'values', 'ToM', 'motivation']
+supported_sub_tasks = ['EA', 'EU', 'self-efficacy', 'big_five_inventory', 'dark_traits', 'vignette_test', 'false_belief', 'imposing_memory', 'strange_stories', 'culture_orientation', 'human-centered_values', 'moral_belief']
+supported_reliability = ['position_bias', 'parallel_forms', 'internal_consistency', 'inter-rater']
+
+tasks_config = {
+    'emotion': {
+        'EA': ['position_bias'],
+        'EU': ['position_bias']
+    },
+    'motivation': {
+        'self-efficacy': ['parallel_forms']
+    },
+    'personality': {
+        'big_five_inventory': ['internal_consistency'],
+        'dark_traits': ['internal_consistency'],
+        'vignette_test': ['inter-rater']
+    },
+    'ToM': {
+        'false_belief': ['parallel_forms', 'position_bias'],
+        'imposing_memory': ['parallel_forms'],
+        'strange_stories': ['inter-rater']
+    },
+    'values': {
+        'culture_orientation': ['internal_consistency'],
+        'human-centered_values': ['position_bias'],
+        'moral_belief': ['parallel_forms']
+    }
+}
 
 deepinfra_model_mapping = {'llama2-70b': 'meta-llama/Llama-2-70b-chat-hf',
                            'llama2-7b': 'meta-llama/Llama-2-7b-chat-hf',
                            'llama3-8b': 'meta-llama/Meta-Llama-3-8B-Instruct',
                            'llama3-70b': 'meta-llama/Meta-Llama-3-70B-Instruct',
                            'mistral-7b': 'mistralai/Mistral-7B-Instruct-v0.2',
-                           'mixtral': 'mistralai/Mixtral-8x7B-Instruct-v0.1',
-                           'mixtral-large': 'mistralai/Mixtral-8x22B-Instruct-v0.1'}
+                           'mixtral-8*7b': 'mistralai/Mixtral-8x7B-Instruct-v0.1',
+                           'mixtral-8*22b': 'mistralai/Mixtral-8x22B-Instruct-v0.1'}
 
-
-qwen_api_key = config.qwen_api_key
-openai_api = config.openai_api
-deepinfra_api = config.deepinfra_api
-zhipu_api = config.zhipu_api
-
-Personality_File = ['big_five.json', 'dark_traits.json']
-Emotion_File = ['EmoBench_EU.json', 'EmoBench_EA.json', 'EmoBench_EU_Shuffled_Fixed_1.json', 'EmoBench_EU_Shuffled_Fixed_2.json', 'EmoBench_EU_Shuffled_Fixed_3.json', "Shuffled_Version_1_EmoBench_EA.json", 'Shuffled_Version_2_EmoBench_EA.json', 'Shuffled_Version_3_EmoBench_EA.json']
-ToM_File = ['false_belief/tom_UCT(parallel).json', 'false_belief/tom_UCT(position_bias).json', 'false_belief/tom_UCT.json', 'false_belief/tom_UTT.json', 'false_belief/tom_UTT(parallel).json', 'false_belief/tom_UTT(position_bias).json', 'imposing_memory/imposing_story.json', 'imposing_memory/imposing_story(parallel).json', 'strange_stories/strange_stories.json']
-Value_File = ['culture_orientation.json', 'human-centered_values/human-centered_value.json']
-
-
-@retry(wait=wait_random_exponential(min=1, max=10), stop=stop_after_attempt(6))
+@retry(wait=wait_random_exponential(min=1, max=10), stop=stop_after_attempt(5))
 def get_res(string, model, temperature=0.5):
-    model_mapping = {'gpt-4': 'XXX', 'chatgpt': 'XXX'}
+    model_mapping = {'gpt-4': 'XXX', 'gpt-3.5': 'XXX'}
     client = AzureOpenAI(
         api_key=openai_api,
         api_version="XXX",
@@ -102,7 +136,7 @@ def zhipu_res(string, model, temperature=0.5):
     if temperature == 0:
         temperature = 0.01
     else:
-        temperature = 0.99
+        temperature = 0.5
     response = client.chat.completions.create(
         model=model_mapping[model],
         messages=[
@@ -115,38 +149,53 @@ def zhipu_res(string, model, temperature=0.5):
 
 
 def process_prompt(el, model):
-    if 'prompt' in el:
-        if model in ['chatgpt', 'gpt-4']:
-            el['res'] = get_res(el['prompt'], model)
-        elif model in ['llama3-8b', 'llama3-70b', 'mistral-7b', 'mixtral', 'mixtral-large']:
-            el['res'] = deepinfra_res(el['prompt'], model)
+    def model_generate(prompt, model):
+        if model in ['gpt-3.5', 'gpt-4']:
+            return get_res(prompt, model)
+        elif model in ['llama3-8b', 'llama3-70b', 'mistral-7b', 'mixtral-8*7b', 'mixtral-8*22b']:
+            return deepinfra_res(prompt, model)
         elif model in ['glm4']:
-            el['res'] = zhipu_res(el['prompt'], model)
+            return zhipu_res(prompt, model)
         elif model in ['qwen-turbo']:
-            el['res'] = qwen_res(el['prompt'])
+            return qwen_res(prompt)
         else:
             raise ValueError('No model')
+
+    if 'prompt' in el:
+        el['answer'] = model_generate(el['prompt'], model)
+
+    elif 'prompt1' in el and 'prompt2' in el:
+        answer1 = model_generate(el['prompt1'], model)
+        answer2 = model_generate(el['prompt2'], model)
+        el['answer1'] = answer1
+        el['answer2'] = answer2 
     else:
-        if 'prompt1' in el and 'prompt2' in el:
-            el['res1'] = get_res(el['prompt1'], model) 
-            el['res2'] = get_res(el['prompt2'], model) 
-        else:
-            raise KeyError('Both prompt1 and prompt2 must be provided')
+        raise KeyError('Prompt missing')
     return el
 
-def process_file(eval_type, file, model):
-    if not os.path.exists(os.path.join('result', model)):
-        os.makedirs(os.path.join('result', model))
+def process_file(model, eval_type, sub_task, file):
+    base_path = os.path.join('result', model, sub_task)
 
-    if os.path.exists(os.path.join('result', model, file.replace('.json', '_res.json'))):
-        save_data = json.load(open(os.path.join('result', model, file.replace('.json', '_res.json')), 'r'))
+    if not os.path.exists(base_path):
+        os.makedirs(base_path)
+
+    result_file_path = os.path.join(base_path, file.replace('.json', '_res.json'))
+
+    if os.path.exists(result_file_path):
+        with open(result_file_path, 'r') as f:
+            save_data = json.load(f)
     else:
         save_data = []
 
-    with open(os.path.join(eval_type, file), 'r') as f:
-        test_data = json.load(f)
+    source_file_path = os.path.join(eval_type, file)
+    if os.path.exists(source_file_path):
+        with open(source_file_path, 'r') as f:
+            test_data = json.load(f)
+    else:
+        test_data = []
+        print(f"Warning: Source file {source_file_path} does not exist.")
 
-    if model in ['chatgpt', 'gpt-4']:
+    if model in ['gpt-3.5', 'gpt-4']:
         max_worker = 5
     else:
         max_worker = 1
@@ -168,13 +217,63 @@ def process_file(eval_type, file, model):
 
     print(f'Finish {file}')
 
+def load_config(config_path):
+    try:
+        with open(config_path, 'r') as file:
+            loaded_yaml = yaml.safe_load(file)
+            return loaded_yaml if loaded_yaml is not None else {}
+    except FileNotFoundError:
+        logging.error(f"The file {config_path} does not exist.")
+        return {}
+    except yaml.YAMLError as exc:
+        logging.error(f"Error parsing YAML file: {exc}")
+        return {}
 
-def run_task(eval_type, file_list, model):
-    assert eval_type in ['emotion', 'personality', 'value', 'culture', ]
-    for file in file_list:
-        process_file(eval_type, file, model)
+def validate_and_get_config(config, category, supported_list):
+    category_items = config.get(category, supported_list)
+    if category_items is None:
+        logging.warning(f"No items specified for {category}, defaulting to all supported items.")
+        return supported_list
+ 
+    invalid_items = [item for item in category_items if item not in supported_list]
+    for item in invalid_items:
+        logging.warning(f"{item} not supported")
+    return [item for item in category_items if item in supported_list]
 
-# Example execution
-model_list = ['gpt-4', 'llama3-8b', 'llama3-70b', 'mixtral', 'mistral-7b', 'mixtral-large', 'glm4', 'qwen-turbo', 'chatgpt']
-for model in model_list:
-    run_task('personality', Personality_File, model)
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="Process models, dimensions, sub-tasks, and reliability from YAML.")
+    parser.add_argument('config_file', nargs='?', default='', type=str, help='Path to the YAML configuration file')
+    args = parser.parse_args()
+
+    config = load_config(args.config_file) if args.config_file else {}
+
+    models = validate_and_get_config(config, 'models', supported_models)
+    dimensions = validate_and_get_config(config, 'dimensions', supported_dimensions)
+    sub_tasks = validate_and_get_config(config, 'sub-tasks', supported_sub_tasks)
+    reliability_measures = validate_and_get_config(config, 'reliability', supported_reliability)
+
+    for model in models:
+        for dimension in dimensions:
+            dimension_path = f"dataset/{dimension}"
+            directory_names = [name for name in os.listdir(dimension_path) if os.path.isdir(os.path.join(dimension_path, name))]
+            
+            for sub_task in sub_tasks:
+                for directory_name in directory_names:
+                    sub_task_path = os.path.join(dimension_path, directory_name, sub_task)
+                    if os.path.exists(sub_task_path):
+                        file_list = []
+                        for filename in os.listdir(sub_task_path):
+                            # Check if the filename contains parentheses.
+                            if '(' in filename and ')' in filename:
+                                start = filename.find('(') + 1
+                                end = filename.find(')')
+                                content = filename[start:end]
+                                # Add file if the content within parentheses is in reliability_measures.
+                                if content in reliability_measures:
+                                    file_list.append(filename)
+                            elif '(' not in filename and ')' not in filename:
+                                # Add file if there are no parentheses.
+                                file_list.append(filename)
+
+                        for file in file_list:
+                            process_file(model, dimension, sub_task, file)

@@ -1,0 +1,10 @@
+pip3 install numpy
+pip3 install pandas
+pip3 install openai
+pip3 install zhipuai
+pip3 install dashscope
+pip3 install replicate
+pip3 install tenacity
+pip3 install urllib3
+pip3 install pyyaml
+pip3 install tqdm

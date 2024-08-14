@@ -33,7 +33,6 @@ def big_five_eval(models: list, file: str, save_dir='result'):
         print(Extraversion_question, Agreeableness_question, Conscientiousness_question, Neuroticism_question, Openness_question)
 
 
-
     model_score_dict = {}
     for model in models:
         model_score_dict[model] = {"Extraversion": [], "Agreeableness": [], "Conscientiousness": [], "Neuroticism": [], "Openness": []}
@@ -259,8 +258,6 @@ def emotion_EU_eval(models: list, file: str, save_dir='result'):
                     question_type = 'cause_label'
                 model_score_dict[model].append(1 if answer == el['choices'].index(el[question_type]) else 0)
 
-    # print(model_score_dict)
-    # calculate avg
     avg_dict = {}
     for model in models:
         avg_dict[model] = sum(model_score_dict[model]) / len(model_score_dict[model])

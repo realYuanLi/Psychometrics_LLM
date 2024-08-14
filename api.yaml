@@ -1,0 +1,5 @@
+api_keys:
+  qwen: "your_qwen_api_key_here"
+  openai: "your_openai_api_key_here"
+  deepinfra: "your_deepinfra_api_key_here"
+  zhipu: "your_zhipu_api_key_here"

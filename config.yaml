@@ -1,0 +1,11 @@
+models:
+  - gpt-4
+
+dimensions:
+  - personality
+
+sub-tasks:
+  - big_five_inventory
+
+reliability:
+  - internal_consistency
