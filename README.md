@@ -1,5 +1,5 @@
 # Psychometrics Benchmark for Large Language Models
-![Psychometrics Benchmark Visualization](img/teaser.pdf)
+![Psychometrics Benchmark Visualization](img/overview.png)
 
 ## Table of Contents
 - [Overview](#overview)
@@ -15,7 +15,8 @@ Large Language Models (LLMs) have demonstrated exceptional task-solving capabili
 
 ## Installation
 ```bash
-install.sh
+bash install.sh
+```
 
 ## API Keys
 Psychometrics benchmark now supports LLMs in [Azure OpenAI API](https://azure.microsoft.com/en-us/products/ai-services/openai-service), [deepinfra](https://deepinfra.com/google/codegemma-7b-it?gad_source=1&gclid=Cj0KCQjwzva1BhD3ARIsADQuPnXXYTOm2_N7a0eu8-sBxnEie5o3Y4sCI9ug3Y_mb0bs4kIgUb6xqawaApXjEALw_wcB), [Zhipu](https://open.bigmodel.cn/dev/api#sdk_install), and [Qwen](https://www.alibabacloud.com/help/en/model-studio/developer-reference/use-qwen-by-calling-api). Specify API keys in `api.yaml`.
