@@ -22,7 +22,68 @@ def parse_score(text):
         return int(match.group())
     else:
         return "No numbers found"
+  
+def parse_option(text):
+    # Regular expression to find (A) or (B)
+    match = re.search(r'\(A\)|\(B\)', text)
+    if match:
+        return match.group()
+    else:
+        return None
+
+def parse_binary(text):
+    normalized_answer = text.strip().lower()
+
+    if re.search(r'\byes\b', normalized_answer):
+        return "Yes"
+    elif re.search(r'\bno\b', normalized_answer):
+        return "No"
+    else:
+        return "No binary result found"
     
+def calculate_matching_rate(directory_path, file1, file2):
+    path1 = os.path.join(directory_path, file1)
+    path2 = os.path.join(directory_path, file2)
+    
+    with open(path1, 'r') as f1, open(path2, 'r') as f2:
+        data1 = json.load(f1)
+        data2 = json.load(f2)
+        
+        correctness1 = [1 if el['answer'] == el['label'] else 0 for el in data1]
+        correctness2 = [1 if el['answer'] == el['label'] else 0 for el in data2]
+        
+        matches = sum(1 for i, correct in enumerate(correctness1) if correct == correctness2[i])
+        total = len(correctness1)
+        
+        return matches / total if total > 0 else 0
+
+def agreement_score(s1, s2):
+    """
+    Compute the agreement score between two scores assigned by two raters.
+
+    Parameters:
+    s1 (int): Score assigned by rater 1.
+    s2 (int): Score assigned by rater 2.
+
+    Returns:
+    float: The agreement score as a percentage (100%, 50%, or 0%).
+    """
+    difference = abs(s1 - s2)
+    if difference == 0:
+        return 100.0  # 100% agreement when scores are identical
+    elif difference == 1:
+        return 50.0   # 50% agreement when scores differ by 1
+    else:
+        return 0.0    # 0% agreement otherwise
+
+def agreement_rate(scores1, scores2):
+    if len(scores1) != len(scores2):
+        raise ValueError("Both raters must have scored the same number of items.")
+    
+    total_agreement = sum(agreement_score(s1, s2) for s1, s2 in zip(scores1, scores2))
+    overall_ar = total_agreement / len(scores1)  # Average agreement rate
+    return overall_ar
+ 
 def parse_emotion_output(pred, choices, task):
     try:
         pred = pred.lower().replace("（", "(").replace("）", ")").replace(".", "")
