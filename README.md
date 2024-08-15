@@ -8,7 +8,7 @@
 - [Evaluation Settings](#evaluation-settings)
 - [Dataset](#dataset)
 - [Usage](#usage)
-- [Citations](#citations)
+- [Citation](#citation)
 - [License](#license)
 
 ## Overview
