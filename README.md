@@ -42,21 +42,21 @@ internal_consistency, parallel_forms, inter-rater
 ## Dataset
 The Psychometrics benchmark consists of 13 datasets spanning five dimensions. The datasets are organized in the `dataset` folder and are summarized in the table below. The term "Psych. Test" refers to a Psychometrics test, while "Est. Dataset" indicates an Established dataset. The symbols ○ and ● represent evaluation through automatic scripts (e.g., keywords matching) and the LLM-as-a-judge approach using GPT-4 and Llama3-70b as raters, respectively.
 
-| Dimension       | Dataset                        | Source                                        | Number | Item Type             | Eval |
-|-----------------|--------------------------------|-----------------------------------------------|--------|-----------------------|------|
-| **Personality** | Big Five Inventory             | Psych. Test                                   | 44     | Rating-Scale (1~5)    | ○    |
-| **Personality** | Short Dark Triad               | Psych. Test                                   | 12     | Rating-Scale (1~5)    | ○    |
-| **Personality** | Vignette Test (Big Five)       | Est. Dataset                                  | 5      | Open-ended            | ●    |
-| **Values**      | Cultural Orientation           | Psych. Test                                   | 27     | Rating-Scale (1~5)    | ○    |
-| **Values**      | MoralChoice                    | Est. Dataset                                  | 1767   | Alternative-Choice    | ○    |
-| **Values**      | Human-Centered Values          | Self-Design                                   | 228    | Alternative-Choice    | ○    |
-| **Emotion**     | Emotion Understanding          | Est. Dataset                                  | 200    | Multiple-Choice       | ○    |
-| **Emotion**     | Emotion Application            | Est. Dataset                                  | 200    | Multiple-Choice       | ○    |
-| **Theory of Mind** | False Belief Task           | Est. Dataset                                  | 40     | Alternative-Choice    | ○    |
-| **Theory of Mind** | Strange Stories Task        | Est. Dataset                                  | 11     | Open-Ended            | ●    |
-| **Theory of Mind** | Imposing Memory Task        | Est. Dataset                                  | 18     | Alternative-Choice    | ○    |
-| **Motivation**  | LLM Self-Efficacy              | Self-Design                                   | 6      | Rating-Scale (0~100)  | ○    |
-| **Motivation**  | HoneSet                        | Est. Dataset                                  | 987    | Open-Ended            | ●    |
+| Dimension       | Dataset                        | Source         | Number | Item Type             | Eval | License                          |
+|-----------------|--------------------------------|----------------|--------|-----------------------|------|----------------------------------|
+| **Personality** | Big Five Inventory             | Psych. Test    | 44     | Rating-Scale (1~5)    | ○    |  NC 4.0 |
+| **Personality** | Short Dark Triad               | Psych. Test    | 12     | Rating-Scale (1~5)    | ○    | DbCL v1.0        |
+| **Personality** | Vignette Test (Big Five)       | Est. Dataset   | 5      | Open-ended            | ●    | NC 4.0  |
+| **Values**      | Cultural Orientation           | Psych. Test    | 27     | Rating-Scale (1~5)    | ○    | NC 4.0        |
+| **Values**      | MoralChoice                    | Est. Dataset   | 1767   | Alternative-Choice    | ○    | cc-by-4.0  |
+| **Values**      | Human-Centered Values          | Self-Design    | 228    | Alternative-Choice    | ○    | MIT           |
+| **Emotion**     | Emotion Understanding          | Est. Dataset   | 200    | Multiple-Choice       | ○    | MIT  |
+| **Emotion**     | Emotion Application            | Est. Dataset   | 200    | Multiple-Choice       | ○    | MIT  |
+| **Theory of Mind** | False Belief Task            | Est. Dataset   | 40     | Alternative-Choice    | ○    | -  |
+| **Theory of Mind** | Strange Stories Task         | Est. Dataset   | 11     | Open-Ended            | ●    | -  |
+| **Theory of Mind** | Imposing Memory Task         | Est. Dataset   | 18     | Alternative-Choice    | ○    | -  |
+| **Motivation**  | LLM Self-Efficacy              | Self-Design    | 6      | Rating-Scale (0~100)  | ○    | MIT           |
+| **Motivation**  | HoneSet                        | Est. Dataset   | 987    | Open-Ended            | ●    | -  |
 
 
 ## Usage
