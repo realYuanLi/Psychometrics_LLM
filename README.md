@@ -72,6 +72,8 @@ python3 evaluation.py
 The evaluation will be saved in results.json file under result folder under each models
 
 ## TODO
+Note that this repository is under active construction, and we plan to provide a comprehensive evaluation tools that are easy to use and customize. We will extend the efforts to the following directions:
+
 - [ ] Automatic generation of parallel forms of test
 - [ ] More fine-grained datasets
 - [ ] Downstream application evaluation
