@@ -71,6 +71,11 @@ python3 evaluation.py
 ```
 The evaluation will be saved in results.json file under result folder under each models
 
+## TODO
+- [ ] Automatic generation of parallel forms of test
+- [ ] More fine-grained datasets
+- [ ] Downstream application evaluation
+
 ## Citation
 To cite this work in academic papers, please use the following BibTeX entry:
 ```bibtex
