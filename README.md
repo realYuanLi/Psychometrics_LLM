@@ -88,5 +88,5 @@ To cite this work in academic papers, please use the following BibTeX entry:
 ```
 
 ## License
-The code in this repository is open source under the 
+The code in this repository is open source under the [MIT license](https://github.com/realYuanLi/Psychometrics_LLM/blob/main/LICENSE)
 
