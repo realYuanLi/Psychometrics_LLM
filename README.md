@@ -27,30 +27,16 @@ Also, in the `generation.py` file, specify `api_version` and `azure_endpoint` fo
 Configuration for the evaluation is specified in `config.yaml`. This file sets up the models to use, the dimensions to evaluate, and the sub-tasks for each dimension. Reliability forms such as internal consistency, parallel forms, and inter-rater reliability are also defined here. If you prefer to evaluate all dimensions and all sub-tasks, this section can be left blank.
 
 ### Supported Models
-- gpt-4
-- gpt-3.5
-- llama3-8b
-- llama3-70b
-- mixtral-8*7b
-- mistral-7b
-- mixtral-8*22b
-- glm4
-- qwen-turbo
+gpt-4, gpt-3.5, llama3-8b, llama3-70b, mixtral-8*7b, mistral-7b, mixtral-8*22b, glm4, qwen-turbo
 
 ### Evaluation Dimensions
-- Personality
-- Values
-- Emotion
-- Theory of mind
-- Motivation
+personality, values, emotion, theory of mind, motivation
 
 ### Subtasks
 Subtasks should be aligned with the directory names under `dataset/{dimension}`, such as "EA" for Emotional Application, "self-efficacy", etc.
 
 ### Reliability Measures
-- Internal consistency
-- Parallel forms
-- Inter-rater reliability
+internal_consistency, parallel_forms, inter-rater
 
 ## Dataset
 The Psychometrics benchmark consists of 13 datasets spanning five dimensions. The datasets are organized in the `dataset` folder and are summarized in the table below. The term "Psych. Test" refers to a Psychometrics test, while "Est. Dataset" indicates an Established dataset. The symbols ○ and ● represent evaluation through automatic scripts (e.g., keywords matching) and the LLM-as-a-judge approach using GPT-4 and Llama3-70b as raters, respectively.
@@ -71,14 +57,17 @@ The Psychometrics benchmark consists of 13 datasets spanning five dimensions. Th
 | **Motivation**  | LLM Self-Efficacy              | Self-Design                                   | 6      | Rating-Scale (0~100)  | ○    |
 | **Motivation**  | HoneSet                        | Est. Dataset                                  | 987    | Open-Ended            | ●    |
 
-Note: The symbol ○ indicates evaluation through automatic scripts, such as keywords matching. The symbol ● denotes the automatic evaluation through LLM-as-a-judge approach using GPT-4 and Llama3-70b as raters.
 
 ## Usage
 ### Generation
 Execute the following command to run the generation script with the specified configuration:
 ```bash
 python3 generation.py config.yaml
-
+```
+### Evaluation
+```bash
+python3 evaluation.py
+```
 The evaluation will be saved in results.json file under result folder under each models
 
 ## Citation
