@@ -6,6 +6,7 @@
 - [Installation](#installation)
 - [API Keys](#api-keys)
 - [Evaluation Settings](#evaluation-settings)
+- [Dataset](#dataset)
 - [Usage](#usage)
 - [Citations](#citations)
 - [License](#license)
@@ -27,7 +28,7 @@ Also, in the `generation.py` file, specify `api_version` and `azure_endpoint` fo
 Configuration for the evaluation is specified in `config.yaml`. This file sets up the models to use, the dimensions to evaluate, and the sub-tasks for each dimension. Reliability forms such as internal consistency, parallel forms, and inter-rater reliability are also defined here. If you prefer to evaluate all dimensions and all sub-tasks, this section can be left blank.
 
 ### Supported Models
-gpt-4, gpt-3.5, llama3-8b, llama3-70b, mixtral-8*7b, mistral-7b, mixtral-8*22b, glm4, qwen-turbo
+gpt-4, gpt-3.5, llama3-8b, llama3-70b, mixtral-8\*7b, mistral-7b, mixtral-8\*22b, glm4, qwen-turbo
 
 ### Evaluation Dimensions
 personality, values, emotion, theory of mind, motivation
@@ -79,4 +80,8 @@ To cite this work in academic papers, please use the following BibTeX entry:
   journal={arXiv preprint arXiv:2406.17675},
   year={2024}
 }
+```
+
+## License
+The code in this repository is open source under the 
 
