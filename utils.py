@@ -76,7 +76,7 @@ def agreement_score(s1, s2):
     else:
         return 0.0    # 0% agreement otherwise
 
-def agreement_rate(scores1, scores2):
+def calculate_ar(scores1, scores2):
     if len(scores1) != len(scores2):
         raise ValueError("Both raters must have scored the same number of items.")
     
